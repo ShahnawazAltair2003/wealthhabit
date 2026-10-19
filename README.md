@@ -8,7 +8,7 @@ If you must use older Node, run `npm install` (installs the optional better-sqli
 ## Run locally
     cp .env.example .env   # a ready .env is already included; change JWT_SECRET for production
     npm install && npm start      # http://localhost:3000
-Demo user `demo@wealthhabit.com / Demo@1234` - Admin `admin@wealthhabit.com / Admin@1234` (realistic INR data seeded on first run).
+Demo user `demo@wealthhabit.com / Demo@1234` - Admin `admin@wealthhabit.com / Admin@1234` .
 
 ## Deploy (Render - free)
 1. Push this folder to GitHub. 2. Render -> New Web Service -> select repo.
@@ -23,3 +23,7 @@ Messages are always saved and shown in the Admin Panel. To also receive them by 
 ## Pages
 Home (React, `/`) - Vision - Contact - 
 Login (login.html) - Register (register.html) - Dashboard - Expense Tracker - Habit Tracker - Savings Goals - Wealth Analytics - Admin Panel
+
+
+## Live Website Rendered on render.com
+ <ahref>https://wealthhabit.onrender.com/</a>
