@@ -1,0 +1,100 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WealthHabit - Financial Habit Builder & Wealth Growth Tracker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="style.css"></head><body>
+<nav id="nav"></nav><main id="app"></main><div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s);let TOKEN=localStorage.getItem('t'),ME=JSON.parse(localStorage.getItem('u')||'null'),CH={};
+const today=()=>new Date().toLocaleDateString('en-CA'),inr=n=>(n<0?'-':'')+'\u20B9'+Math.abs(n).toLocaleString('en-IN',{maximumFractionDigits:0});
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(p,o={}){const r=await fetch('/api/'+p+(p.includes('?')?'&':'?')+'today='+today(),{method:o.method||(o.body?'POST':'GET'),headers:{'Content-Type':'application/json',...(TOKEN&&{Authorization:'Bearer '+TOKEN})},body:o.body&&JSON.stringify(o.body)});
+ const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401&&TOKEN&&!p.startsWith('auth'))logout();throw new Error(d.error||'Request failed')}return d}
+function toast(m,e){const t=$('#toast');t.textContent=m;t.className=e?'e':'';t.style.display='block';clearTimeout(t.h);t.h=setTimeout(()=>t.style.display='none',2600)}
+function logout(){localStorage.clear();location.href='login.html'}
+function chart(id,type,labels,sets,o={}){CH[id]?.destroy();const el=document.getElementById(id);if(!el)return;CH[id]=new Chart(el,{type,data:{labels,datasets:sets},options:{responsive:true,maintainAspectRatio:true,plugins:{legend:{display:sets.length>1||type==='doughnut'}},scales:type==='doughnut'?{}:{y:{ticks:{callback:v=>inr(v)}}},...o}})}
+const COL=['#0f9d75','#3b82f6','#f59e0b','#e5484d','#8b5cf6','#14b8a6','#ec4899','#64748b','#a3a3a3'];
+const mLabel=m=>new Date(m+'-01').toLocaleString('en',{month:'short',year:'2-digit'});
+const opts=a=>a.map(x=>`<option>${x}</option>`).join('');
+const CATS=['Food','Rent','Transport','Utilities','Entertainment','Health','Shopping','Education','Other'];
+const F=(api,fields,btn='Add')=>`<form data-api="${api}">${fields}<button>${btn}</button></form>`;
+const L=(n,t,x='',a='')=>`<label>${n}<input name="${t}" ${x} ${a}></label>`;
+
+function nav(){const l=[['dashboard','Dashboard'],['expenses','Expense Tracker'],['habits','Habit Tracker'],['goals','Savings Goals'],['wealth','Wealth Analytics'],['support','Support']];if(ME?.role==='admin')l.push(['admin','Admin Panel']);
+ const h=location.hash.slice(2)||'dashboard';$('#nav').innerHTML=ME?`<b><a href="/" style="color:#fff;padding:0">\uD83D\uDCB0 WealthHabit</a></b>`+l.map(([k,n])=>`<a href="#/${k}" class="${h===k?'on':''}">${n}</a>`).join('')+`<span class="sp"></span><a href="#" id="lo">Logout (${esc(ME.name.split(' ')[0])})</a>`:`<b>\uD83D\uDCB0 WealthHabit</b>`;
+ const lo=$('#lo');if(lo)lo.onclick=e=>{e.preventDefault();logout()}}
+async function route(){const h=location.hash.slice(2)||'dashboard';nav();
+ if(!TOKEN){location.href='login.html';return}
+ try{await(P[h]||P.dashboard)()}catch(e){toast(e.message,1)}}
+addEventListener('hashchange',route);
+document.addEventListener('submit',async e=>{const f=e.target;if(!f.dataset.api)return;e.preventDefault();const b=Object.fromEntries(new FormData(f));
+ try{await api(f.dataset.api,{body:b});toast('Saved');route()}catch(x){toast(x.message,1)}});
+document.addEventListener('click',async e=>{const b=e.target.closest('[data-del],[data-tg],[data-add],[data-act]');if(!b)return;const D=b.dataset;
+ try{if(D.del){if(!confirm('Delete this item?'))return;await api(D.del,{method:'DELETE'})}
+  else if(D.tg){const[id,d]=D.tg.split('|');await api(`habits/${id}/toggle`,{body:{date:d}})}
+  else if(D.add){const a=Number(prompt('Amount to add (\u20B9):'));if(!(a>0))return;const g=JSON.parse(D.add);await api('goals/'+g.id,{method:'PUT',body:{...g,saved:g.saved+a}})}
+  else if(D.act==='reminder'){const p=await Notification.requestPermission();toast(p==='granted'?'Reminders enabled':'Notifications blocked');}
+  else if(D.act){const[k,id,v]=D.act.split('|');await api(`admin/${k}/${id}`,{method:k==='feedback'?'PUT':'PUT',body:{active:v==='1'}})}
+  route()}catch(x){toast(x.message,1)}});
+
+const P={
+async dashboard(){const s=await api('summary'),pend=s.habits.filter(h=>!h.doneNow),pct=s.budget?Math.round(s.expenses/s.budget*100):0,best=Math.max(0,...s.habits.map(h=>h.streak));
+ const tip=s.savingsRate>=20?`Great work - you saved ${s.savingsRate}% of income this month. Keep investing it!`:s.income?`You saved ${s.savingsRate}% this month. Aim for 20% - try trimming ${s.categories[0]?.category||'top'} spending.`:'Add your income to get insights.';
+ $('#app').innerHTML=`<h2>Hello, ${esc(ME.name.split(' ')[0])} \uD83D\uDC4B</h2><div class="card" style="background:#e8f7f1;margin-bottom:14px">\uD83D\uDCA1 ${tip} ${best?`Your best streak is \uD83D\uDD25 ${best}.`:''}</div>
+ <div class="grid"><div class="card"><div class="k">Net worth</div><div class="v">${inr(s.netWorth.at(-1))}</div></div><div class="card"><div class="k">Income (${mLabel(s.month)})</div><div class="v pos">${inr(s.income)}</div></div>
+ <div class="card"><div class="k">Expenses</div><div class="v neg">${inr(s.expenses)}</div></div><div class="card"><div class="k">Savings rate</div><div class="v">${s.savingsRate}%</div></div>
+ <div class="card"><div class="k">Habit completion (30d)</div><div class="v">${s.habitRate}%</div></div><div class="card"><div class="k">Avg goal progress</div><div class="v">${s.goalRate}%</div></div></div>
+ <div class="grid g2" style="margin-top:14px"><div class="card"><h3>Monthly budget</h3><div class="bar ${pct>100?'w':''}"><i style="width:${Math.min(100,pct)}%"></i></div><p class="k">${inr(s.expenses)} of ${inr(s.budget)} used (${pct}%)</p>
+ <h3>Today's habits</h3>${s.habits.map(h=>`<div style="display:flex;justify-content:space-between;padding:4px 0">${esc(h.name)} <button class="${h.doneNow?'':'s'} x" data-tg="${h.id}|${today()}">${h.doneNow?'\u2713 Done':'Mark done'}</button></div>`).join('')||'<p class="k">No habits yet.</p>'}
+ ${pend.length?`<button class="s" data-act="reminder">\uD83D\uDD14 Enable reminders (${pend.length} pending)</button>`:'<p class="pos">All habits complete \uD83C\uDF89</p>'}</div>
+ <div class="card"><h3>Spending by category</h3><canvas id="c1"></canvas></div><div class="card"><h3>Income vs expenses</h3><canvas id="c2"></canvas></div><div class="card"><h3>Net worth growth</h3><canvas id="c3"></canvas></div></div>
+ <div class="card" style="margin-top:14px">Questions, feedback or a complaint? <a href="#/support">Contact support</a></div>`;
+ chart('c1','doughnut',s.categories.map(c=>c.category),[{data:s.categories.map(c=>c.v),backgroundColor:COL}]);
+ chart('c2','bar',s.months.slice(6).map(mLabel),[{label:'Income',data:s.incSeries.slice(6),backgroundColor:'#0f9d75'},{label:'Expenses',data:s.expSeries.slice(6),backgroundColor:'#e5484d'}]);
+ chart('c3','line',s.months.map(mLabel),[{label:'Net worth',data:s.netWorth,borderColor:'#0f9d75',backgroundColor:'#0f9d7533',fill:true,tension:.3}]);
+ if(Notification.permission==='granted'&&pend.length&&!sessionStorage.n){sessionStorage.n=1;new Notification('WealthHabit',{body:`${pend.length} financial habit(s) pending today`})}},
+
+async expenses(){const[inc,exp]=await Promise.all([api('income'),api('expenses')]),m=sessionStorage.m||today().slice(0,7);
+ const mi=inc.filter(x=>x.date.startsWith(m)),me=exp.filter(x=>x.date.startsWith(m)),ti=mi.reduce((a,x)=>a+x.amount,0),te=me.reduce((a,x)=>a+x.amount,0),cat={};me.forEach(x=>cat[x.category]=(cat[x.category]||0)+x.amount);
+ const all=[...inc.map(x=>({...x,t:'income',label:x.source,url:'income/'+x.id})),...exp.map(x=>({...x,t:'expense',label:`${x.category}${x.note?' - '+x.note:''}`,url:'expenses/'+x.id}))].filter(x=>x.date.startsWith(m)).sort((a,b)=>b.date.localeCompare(a.date));
+ $('#app').innerHTML=`<h2>Expense & Income Tracker</h2><div class="grid g2"><div class="card"><h3>Add income</h3>${F('income',`${L('Source','source','required placeholder="Salary"')}${L('Amount','amount','type=number min=1 required')}${L('Date','date',`type=date value=${today()} required`)}`)}</div>
+ <div class="card"><h3>Log expense</h3>${F('expenses',`<label>Category<select name="category">${opts(CATS)}</select></label>${L('Amount','amount','type=number min=1 required')}${L('Note','note','maxlength=120')}${L('Date','date',`type=date value=${today()} required`)}`)}</div></div>
+ <div class="card" style="margin-top:14px"><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><h3 style="margin:0">Monthly report</h3><input type="month" value="${m}" onchange="sessionStorage.m=this.value;route()"><button class="s" onclick="print()">Print report</button></div>
+ <div class="grid" style="margin:12px 0"><div><span class="k">Income</span><div class="v pos">${inr(ti)}</div></div><div><span class="k">Spent</span><div class="v neg">${inr(te)}</div></div><div><span class="k">Saved</span><div class="v">${inr(ti-te)}</div></div></div>
+ <table>${Object.entries(cat).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<tr><td>${c}</td><td><div class="bar"><i style="width:${Math.round(v/te*100)}%"></i></div></td><td class="n">${inr(v)} (${Math.round(v/te*100)}%)</td></tr>`).join('')||'<tr><td>No expenses this month</td></tr>'}</table></div>
+ <div class="card" style="margin-top:14px"><h3>Transactions</h3><table>${all.map(x=>`<tr><td>${x.date}</td><td>${esc(x.label)}</td><td class="n ${x.t==='income'?'pos':'neg'}">${x.t==='income'?'+':'-'}${inr(x.amount)}</td><td class="n"><button class="d x" data-del="${x.url}">\u2715</button></td></tr>`).join('')||'<tr><td>Nothing yet</td></tr>'}</table></div>`},
+
+async habits(){const h=await api('habits'),days=Array.from({length:14},(_,i)=>new Date(Date.now()-(13-i)*864e5).toLocaleDateString('en-CA'));
+ $('#app').innerHTML=`<h2>Financial Habit Tracker</h2><div class="card">${F('habits',`${L('Habit','name','required placeholder="Save \u20B9250 daily" maxlength=80')}<label>Frequency<select name="frequency"><option>daily</option><option>weekly</option><option>monthly</option></select></label>`,'Add habit')}</div>
+ <div class="grid g2" style="margin-top:14px">${h.map(x=>`<div class="card"><div style="display:flex;justify-content:space-between"><b>${esc(x.name)}</b><span class="tag">${x.frequency}</span></div>
+ <div class="v">\uD83D\uDD25 ${x.streak} <span class="k">${{daily:'day',weekly:'week',monthly:'month'}[x.frequency]} streak</span></div>
+ <div class="dots">${days.map(d=>`<button class="dot ${x.dates.includes(d)?'on':''}" title="${d}" data-tg="${x.id}|${d}">${+d.slice(8)}</button>`).join('')}</div>
+ <div class="bar"><i style="width:${Math.round(x.rate*100)}%"></i></div><p class="k">30-day completion: ${Math.round(x.rate*100)}% (${x.done}/${x.exp})</p>
+ <button class="${x.doneNow?'':'s'}" data-tg="${x.id}|${today()}">${x.doneNow?'\u2713 Done this period':'Mark done'}</button> <button class="d x" data-del="habits/${x.id}">Delete</button></div>`).join('')}</div>`},
+
+async goals(){const g=await api('goals');$('#app').innerHTML=`<h2>Savings Goals</h2><div class="card">${F('goals',`${L('Goal','name','required placeholder="Emergency fund"')}${L('Target (\u20B9)','target','type=number min=1 required')}${L('Saved so far','saved','type=number min=0 value=0')}${L('Deadline','deadline','type=date')}`,'Add goal')}</div>
+ <div class="grid g2" style="margin-top:14px">${g.map(x=>{const p=Math.min(100,Math.round(x.saved/x.target*100));return`<div class="card"><b>${esc(x.name)}</b> <span class="tag">${p}%</span><div class="bar" style="margin:10px 0"><i style="width:${p}%"></i></div>
+ <p class="k">${inr(x.saved)} of ${inr(x.target)}${x.deadline?` \u00B7 by ${x.deadline}`:''}${p>=100?' \uD83C\uDF89 Achieved!':` \u00B7 ${inr(x.target-x.saved)} to go`}</p>
+ <button data-add='${JSON.stringify({id:x.id,name:x.name,target:x.target,saved:x.saved,deadline:x.deadline}).replace(/'/g,'&#39;')}'>+ Add savings</button> <button class="d x" data-del="goals/${x.id}">Delete</button></div>`}).join('')}</div>`},
+
+async wealth(){const[s,a]=await Promise.all([api('summary'),api('assets')]),b=s.breakdown,nw=s.netWorth,gr=nw[0]?Math.round((nw.at(-1)-nw[0])/Math.abs(nw[0])*100):0;
+ $('#app').innerHTML=`<h2>Wealth Analytics</h2><div class="grid"><div class="card"><div class="k">Net worth</div><div class="v">${inr(nw.at(-1))}</div><span class="${gr>=0?'pos':'neg'}">${gr>=0?'\u25B2':'\u25BC'} ${Math.abs(gr)}% in 12 months</span></div>
+ <div class="card"><div class="k">Savings</div><div class="v">${inr(b.savings)}</div></div><div class="card"><div class="k">Investments</div><div class="v">${inr(b.investment)}</div></div><div class="card"><div class="k">Other assets</div><div class="v">${inr(b.asset)}</div></div><div class="card"><div class="k">Liabilities</div><div class="v neg">${inr(b.liability)}</div></div></div>
+ <div class="grid g2" style="margin-top:14px"><div class="card"><h3>Net worth over time</h3><canvas id="w1"></canvas></div><div class="card"><h3>Asset allocation</h3><canvas id="w2"></canvas></div></div>
+ <div class="card" style="margin-top:14px"><h3>Add savings / investment / asset / liability entry</h3>${F('assets',`<label>Type<select name="kind"><option value="savings">savings</option><option value="investment">investment</option><option value="asset">asset</option><option value="liability">liability</option></select></label>${L('Name','name','required placeholder="Mutual fund SIP"')}${L('Amount (negative = withdrawal/repayment)','amount','type=number step=any required')}${L('Date','date',`type=date value=${today()} required`)}`)}</div>
+ <div class="card" style="margin-top:14px"><table>${a.map(x=>`<tr><td>${x.date}</td><td><span class="tag">${x.kind}</span></td><td>${esc(x.name)}</td><td class="n">${inr(x.amount)}</td><td class="n"><button class="d x" data-del="assets/${x.id}">\u2715</button></td></tr>`).join('')}</table></div>`;
+ chart('w1','line',s.months.map(mLabel),[{label:'Net worth',data:nw,borderColor:'#0f9d75',backgroundColor:'#0f9d7533',fill:true,tension:.3}]);
+ chart('w2','doughnut',['Savings','Investments','Assets'],[{data:[b.savings,b.investment,b.asset].map(v=>Math.max(0,v)),backgroundColor:COL}])},
+
+async support(){const f=await api('feedback/mine');$('#app').innerHTML=`<h2>Support & Feedback</h2><div class="card">${F('feedback',`<label>Type<select name="type"><option>feedback</option><option>query</option><option>complaint</option></select></label>${L('Subject','subject','required maxlength=100')}<label style="flex-basis:100%">Message<textarea name="message" rows="4" required maxlength="500"></textarea></label>`,'Send to team')}</div>
+ <div class="card" style="margin-top:14px"><h3>Your submissions</h3><table>${f.map(x=>`<tr><td>${x.created}</td><td><span class="tag">${x.type}</span></td><td><b>${esc(x.subject||'')}</b> ${esc(x.message)}</td><td class="n">${x.status}</td></tr>`).join('')||'<tr><td>Nothing sent yet</td></tr>'}</table></div>`},
+
+async admin(){if(ME.role!=='admin'){location.hash='#/dashboard';return}const[st,us,fb,co]=await Promise.all([api('admin/stats'),api('admin/users'),api('admin/feedback'),api('admin/contacts')]);
+ $('#app').innerHTML=`<h2>Admin Panel</h2><div class="grid"><div class="card"><div class="k">Users</div><div class="v">${st.totalUsers}</div></div><div class="card"><div class="k">Active (30d logins)</div><div class="v">${st.activeUsers}</div></div><div class="card"><div class="k">Engagement</div><div class="v">${st.engagement}%</div></div>
+ <div class="card"><div class="k">Habit completion</div><div class="v">${st.habitRate}%</div></div><div class="card"><div class="k">Avg goal completion</div><div class="v">${st.goalRate}%</div></div><div class="card"><div class="k">Open feedback</div><div class="v">${st.openFeedback}</div></div></div>
+ <div class="card" style="margin-top:14px"><h3>Platform activity (entries per month)</h3><canvas id="a1"></canvas></div>
+ <div class="card" style="margin-top:14px;overflow-x:auto"><h3>Manage users</h3><table><tr><th>Name</th><th>Email</th><th>Role</th><th>Entries</th><th>Last login</th><th></th></tr>${us.map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email)}</td><td>${u.role}</td><td>${u.entries}</td><td>${u.last_login||'-'}</td><td class="n">${u.role==='admin'?'':`<button class="s x" data-act="users|${u.id}|${u.active?0:1}">${u.active?'Disable':'Enable'}</button> <button class="d x" data-del="admin/users/${u.id}">Delete</button>`}</td></tr>`).join('')}</table></div>
+ <div class="card" style="margin-top:14px"><h3>Feedback & complaints</h3><table>${fb.map(f=>`<tr><td>${f.created}</td><td>${esc(f.name)}</td><td><span class="tag">${f.type}</span></td><td><b>${esc(f.subject||'')}</b> ${esc(f.message)}</td><td class="n">${f.status==='open'?`<button class="x" data-act="feedback|${f.id}|1">Resolve</button>`:'\u2713'}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table></div>
+ <div class="card" style="margin-top:14px;overflow-x:auto"><h3>Website contact messages</h3><table>${co.map(c=>`<tr><td>${c.created}</td><td>${esc(c.name)}<br><span class="k">${esc(c.email)}</span></td><td><span class="tag">${c.type}</span></td><td><b>${esc(c.subject)}</b> ${esc(c.message)}</td><td class="n">${c.status==='open'?`<button class="x" data-act="contacts|${c.id}|1">Resolve</button>`:'\u2713'}</td></tr>`).join('')||'<tr><td>None</td></tr>'}</table></div>`;
+ chart('a1','bar',st.months.map(mLabel),[{label:'Entries',data:st.activity,backgroundColor:'#0f9d75'}],{scales:{y:{beginAtZero:true}}})}};
+route();
+</script></body></html>

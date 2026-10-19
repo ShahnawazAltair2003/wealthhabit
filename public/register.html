@@ -1,0 +1,8 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create account - WealthHabit</title><link rel="stylesheet" href="style.css"></head>
+<body><main><div class="card auth"><h2>Create your account</h2><p class="k">Set up your financial profile in under a minute.</p>
+<form data-mode="register"><label>Full name<input name="name" required maxlength="60" autocomplete="name"></label><label>Email<input name="email" type="email" required autocomplete="email"></label>
+<label>Phone (optional)<input name="phone" type="tel" maxlength="15"></label><label>Monthly budget (₹)<input name="budget" type="number" min="0" value="30000"></label>
+<label>Password (8+ characters, letters &amp; numbers)<input name="password" type="password" minlength="8" required autocomplete="new-password"></label>
+<label>Confirm password<input name="confirm" type="password" minlength="8" required autocomplete="new-password"></label>
+<button style="width:100%">Create account</button></form><p id="msg" role="alert"></p>
+<p>Already registered? <a href="login.html">Log in</a></p></div></main><script src="auth.js"></script></body></html>
