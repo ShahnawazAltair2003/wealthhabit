@@ -1,6 +1,9 @@
 # WealthHabit - Financial Habit Builder & Wealth Growth Tracker
 Full-stack app: Node.js + Express + SQLite (better-sqlite3), JWT auth, bcrypt, Helmet, rate limiting, Chart.js frontend (7 hash-routed pages).
 
+## Document
+<ahref>https://docs.google.com/document/d/1y91_EAgFnV8IqLaPVQD07WHyAtdya1Yusp90K-9fPY0/edit?usp=sharing</a> 
+
 ## Requirements
 Node.js 22.13+ (22 LTS or 24 recommended). Check with `node -v`. The database uses Node's built-in SQLite, so no native modules are compiled.
 If you must use older Node, run `npm install` (installs the optional better-sqlite3) and set `DB_DRIVER=better` in `.env`.
